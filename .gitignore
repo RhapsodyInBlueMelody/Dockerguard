@@ -1,0 +1,5 @@
+.direnv
+.envrc
+Dockerfile
+flake.lock
+flake.nix
