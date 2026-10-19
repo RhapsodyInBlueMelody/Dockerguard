@@ -1,5 +1,12 @@
-.direnv
-.envrc
-Dockerfile
-flake.lock
-flake.nix
+
+# Nix direnv generated environment
+.direnv/
+
+# Go build outputs
+/dockguard
+*.test
+coverage.out
+
+# IDE and editor files
+.idea/
+.vscode/
