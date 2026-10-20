@@ -62,37 +62,42 @@ func TestIsFormInstruction(t *testing.T) {
 	}
 }
 
-func TestUseLatestTag(t *testing.T) {
+func TestCheckImageTag(t *testing.T) {
 	tests := []struct {
 		name  string
 		input string
-		want  bool
+		want  int
 	}{
-		{name: "Use Latest Tag",
-			input: "FROM nginx:latest",
-			want:  true,
-		}, {
-			name:  "Use Version number tag",
-			input: "FROM nginx:2.23.1",
-			want:  false,
-		}, {
-			name:  "Use latest os version",
-			input: "FROM nginx:latest-alphine",
-			want:  false,
+		{
+			name:  "Image without explicit tag",
+			input: "nginx",
+			want:  TagMissing,
+		},
+		{
+			name:  "Explicit latest tag",
+			input: "nginx:latest",
+			want:  LatestTag,
+		},
+		{
+			name:  "Specific version tag",
+			input: "nginx:1.28",
+			want:  VersionTag,
+		},
+		{
+			name:  "Registry port without image tag",
+			input: "localhost:5000/myapp",
+			want:  TagMissing,
 		},
 	}
+
 	for _, tt := range tests {
-
 		t.Run(tt.name, func(t *testing.T) {
+			got := checkImageTag(tt.input)
 
-			got := useLatestTag(tt.input)
-
-			// Check whether got matches the expected result here.
 			if got != tt.want {
-				t.Errorf("got %t, want %t", got, tt.want)
+				t.Errorf("checkImageTag(%q) = %d, want %d",
+					tt.input, got, tt.want)
 			}
 		})
-
 	}
-
 }

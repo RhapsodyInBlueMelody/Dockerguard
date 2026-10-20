@@ -17,6 +17,12 @@ const (
 	White  = "\033[37m"
 )
 
+const (
+	TagMissing int = 1
+	LatestTag  int = 2
+	VersionTag int = 3
+)
+
 func isFromInstruction(param1 string) bool {
 	parts := strings.Fields(param1)
 	if len(parts) == 0 {
@@ -25,12 +31,17 @@ func isFromInstruction(param1 string) bool {
 	return strings.EqualFold(parts[0], "FROM")
 }
 
-func useLatestTag(param1 string) bool {
-	parts := strings.Split(param1, ":")
-	if len(parts) <= 1 {
-		return false
+func checkImageTag(param1 string) int {
+	colonIndex := strings.LastIndex(param1, ":")
+	slashIndex := strings.LastIndex(param1, "/")
+	if colonIndex < 0 || colonIndex < slashIndex {
+		return TagMissing
 	}
-	return parts[1] == "latest"
+	if param1[colonIndex+1:] == "latest" {
+		return LatestTag
+	}
+	return VersionTag
+
 }
 
 func main() {
@@ -61,8 +72,20 @@ func main() {
 		}
 
 		fmt.Println("[LOG] Found a FROM instruction at line ", index+1, ":", line)
-		if useLatestTag(parts[1]) {
-			fmt.Println("[WARNING] Line ", index+1, ": base image uses the explicit latest tag: ", line)
+		if len(parts) < 2 {
+			fmt.Printf("%s[WARNING] Line %d: FROM instruction is missing an image name%s\n",
+				Yellow, index+1, Reset)
+			continue
+		}
+
+		if checkImageTag(line) == 1 {
+			fmt.Printf("%s[WARNING] Line %d: FROM instruction is missing an image tag%s\n",
+				Yellow, index+1, Reset)
+			continue
+		} else if checkImageTag(line) == 2 {
+			fmt.Printf("%s[WARNING] Line %d: FROM instruction using latest tag%s\n",
+				Yellow, index+1, Reset)
+			continue
 		}
 	}
 }
