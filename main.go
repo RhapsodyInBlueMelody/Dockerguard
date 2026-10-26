@@ -23,6 +23,17 @@ const (
 	VersionTag int = 3
 )
 
+type Warning struct {
+	Line    int
+	Type    int
+	Message string
+}
+
+type Log struct {
+	Line    int
+	Message string
+}
+
 func isFromInstruction(param1 string) bool {
 	parts := strings.Fields(param1)
 	if len(parts) == 0 {
@@ -44,22 +55,46 @@ func checkImageTag(param1 string) int {
 
 }
 
-func main() {
-	if len(os.Args) < 2 {
-		fmt.Println("Usage: dockguard <Dockerfile-path>")
-		return
+func fromImageParser(parts []string, index int) (Warning, bool) {
+
+	if len(parts) < 2 {
+		warning := Warning{
+			Line:    index + 1,
+			Type:    TagMissing,
+			Message: "FROM instruction is missing an image tag",
+		}
+
+		return warning, true
+
 	}
-	var path string = os.Args[1]
-	data, err := os.ReadFile(path)
-	if err != nil {
-		fmt.Printf("%s[ERROR] Can't read %q: %v%s\n",
-			Red, path, err, Reset)
-		return
+
+	var status int = checkImageTag(parts[1])
+
+	switch status {
+	case TagMissing:
+		warning := Warning{
+			Line:    index + 1,
+			Type:    TagMissing,
+			Message: "FROM instruction is missing an image tag",
+		}
+		return warning, true
+
+	case LatestTag:
+		warning := Warning{
+			Line:    index + 1,
+			Type:    LatestTag,
+			Message: "FROM instruction using latest tag",
+		}
+		return warning, true
 	}
-	fmt.Println("Scanning...", path)
+
+	return Warning{}, false
+}
+
+func parserDockerfile(data []byte) int {
 
 	lines := strings.Split(string(data), "\n")
-
+	var warningCount int = 0
 	for index, line := range lines {
 		parts := strings.Fields(line)
 
@@ -67,25 +102,35 @@ func main() {
 			continue
 		}
 
-		if !isFromInstruction(parts[0]) {
-			continue
+		result, foundWarning := fromImageParser(parts, index)
+
+		if foundWarning {
+			fmt.Printf("[WARNING] Line %d: %s\n", result.Line, result.Message)
+			warningCount++
 		}
 
-		fmt.Println("[LOG] Found a FROM instruction at line ", index+1, ":", line)
-		if len(parts) < 2 {
-			fmt.Printf("%s[WARNING] Line %d: FROM instruction is missing an image name%s\n",
-				Yellow, index+1, Reset)
-			continue
-		}
-
-		if checkImageTag(line) == 1 {
-			fmt.Printf("%s[WARNING] Line %d: FROM instruction is missing an image tag%s\n",
-				Yellow, index+1, Reset)
-			continue
-		} else if checkImageTag(line) == 2 {
-			fmt.Printf("%s[WARNING] Line %d: FROM instruction using latest tag%s\n",
-				Yellow, index+1, Reset)
-			continue
-		}
 	}
+
+	return warningCount
+}
+
+func main() {
+
+	if len(os.Args) < 2 {
+		fmt.Println("Usage: dockguard <Dockerfile-path>")
+		os.Exit(2)
+	}
+	var path string = os.Args[1]
+	data, err := os.ReadFile(path)
+	if err != nil {
+		fmt.Printf("%s[ERROR] Can't read %q: %v%s\n",
+			Red, path, err, Reset)
+		os.Exit(2)
+	}
+	fmt.Println("Scanning...", path)
+
+	var warnings int = parserDockerfile(data)
+
+	fmt.Println("Scanning Finished!")
+	fmt.Printf("Warning found: %d\n", warnings)
 }
